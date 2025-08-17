@@ -387,7 +387,8 @@ local function mainScript()
         end
     end
     
-    -- Add your custom script features here
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/Zennakub123456789/Script-more-/refs/heads/main/Tad%20Hub%20Universe"))()
+
     -- Example features you can add:
     -- - ESP (Extra Sensory Perception)
     -- - Auto-aim
