@@ -75,6 +75,13 @@ end
 
 cacheLink();
 
+local function GetImage(url, filename)
+    if not isfile(filename) then
+        writefile(filename, game:HttpGet(url))
+    end
+    return getsynasset(filename)
+end
+
 --!optimize 2
 local generateNonce = function()
     local str = ""
@@ -709,13 +716,6 @@ local function createKeyGUI()
     headerGradient.Parent = headerFrame
 
     -- Logo/Icon
-    local function GetImage(url, filename)
-    if not isfile(filename) then
-        writefile(filename, game:HttpGet(url))
-    end
-    return getsynasset(filename)
-end
-
     local logo = Instance.new("ImageLabel")
     logo.Size = UDim2.new(0, 40, 0, 40)
     logo.Position = UDim2.new(0, 20, 0, 20)
