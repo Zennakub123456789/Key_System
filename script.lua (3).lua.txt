@@ -79,7 +79,14 @@ local function GetImage(url, filename)
     if not isfile(filename) then
         writefile(filename, game:HttpGet(url))
     end
-    return getsynasset(filename)
+    if getcustomasset then
+        return getcustomasset(filename)
+    elseif getsynasset then
+        return getsynasset(filename)
+    else
+        warn("❌ Executor ของคุณไม่รองรับ getcustomasset / getsynasset")
+        return ""
+    end
 end
 
 --!optimize 2
