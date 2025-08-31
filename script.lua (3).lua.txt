@@ -709,32 +709,19 @@ local function createKeyGUI()
     headerGradient.Parent = headerFrame
 
     -- Logo/Icon
-    local HttpService = game:GetService("HttpService")
-local ContentProvider = game:GetService("ContentProvider")
-
-local imageUrl = "https://raw.githubusercontent.com/Zennakub123456789/picture/main/TadHub-Icon.png"
-
--- สร้าง ImageLabel ก่อน
-local logo = Instance.new("ImageLabel")
-logo.Size = UDim2.new(0, 40, 0, 40)
-logo.Position = UDim2.new(0, 20, 0, 20)
-logo.BackgroundTransparency = 1
-logo.Parent = headerFrame
-
--- ดาวน์โหลดและ preload รูปก่อนเอามาแสดง
-task.spawn(function()
-    local success, err = pcall(function()
-        -- Preload รูป
-        ContentProvider:PreloadAsync({imageUrl})
-        -- ใส่รูปลง ImageLabel
-        logo.Image = imageUrl
-        print("✅ โหลดรูปเรียบร้อยแล้ว")
-    end)
-
-    if not success then
-        warn("❌ โหลดรูปไม่สำเร็จ: "..tostring(err))
+    local function GetImage(url, filename)
+    if not isfile(filename) then
+        writefile(filename, game:HttpGet(url))
     end
-end)
+    return getsynasset(filename)
+end
+
+    local logo = Instance.new("ImageLabel")
+    logo.Size = UDim2.new(0, 40, 0, 40)
+    logo.Position = UDim2.new(0, 20, 0, 20)
+    logo.BackgroundTransparency = 1
+    logo.Image = GetImage("https://raw.githubusercontent.com/Zennakub123456789/picture/main/TadHub-Icon.png", "TadHub-Icon.png")
+    logo.Parent = headerFrame
 
     local logoCorner = Instance.new("UICorner")
     logoCorner.CornerRadius = UDim.new(0, 8)
