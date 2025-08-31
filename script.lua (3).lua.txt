@@ -714,15 +714,11 @@ local function createKeyGUI()
     headerGradient.Parent = headerFrame
 
     -- Logo/Icon
-    local logo = Instance.new("TextLabel")
+    local logo = Instance.new("ImageLabel")
     logo.Size = UDim2.new(0, 40, 0, 40)
     logo.Position = UDim2.new(0, 20, 0, 20)
-    logo.BackgroundColor3 = Color3.fromRGB(0, 255, 150)
-    logo.BorderSizePixel = 0
-    logo.Text = "🛡️"
-    logo.TextColor3 = Color3.fromRGB(255, 255, 255)
-    logo.TextSize = 24
-    logo.Font = Enum.Font.GothamBold
+    logo.BackgroundTransparency = 1 -- ถ้าอยากให้พื้นหลังใส
+    logo.Image = "https://raw.githubusercontent.com/Zennakub123456789/picture/main/TadHub-Icon.png"
     logo.Parent = headerFrame
 
     local logoCorner = Instance.new("UICorner")
@@ -734,7 +730,7 @@ local function createKeyGUI()
     title.Size = UDim2.new(1, -80, 0, 30)
     title.Position = UDim2.new(0, 70, 0, 15)
     title.BackgroundTransparency = 1
-    title.Text = "PLATOBOOST"
+    title.Text = "Tad Hub Key System"
     title.TextColor3 = Color3.fromRGB(255, 255, 255)
     title.TextSize = isMobile and 18 or 22
     title.Font = Enum.Font.GothamBold
@@ -746,7 +742,7 @@ local function createKeyGUI()
     subtitle.Size = UDim2.new(1, -80, 0, 20)
     subtitle.Position = UDim2.new(0, 70, 0, 40)
     subtitle.BackgroundTransparency = 1
-    subtitle.Text = "Advanced Security System"
+    subtitle.Text = "Key System"
     subtitle.TextColor3 = Color3.fromRGB(150, 255, 200)
     subtitle.TextSize = isMobile and 10 or 12
     subtitle.Font = Enum.Font.Gotham
