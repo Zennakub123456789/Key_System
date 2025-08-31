@@ -712,7 +712,6 @@ local function createKeyGUI()
     local HttpService = game:GetService("HttpService")
 local ContentProvider = game:GetService("ContentProvider")
 
-local headerFrame = workspace:WaitForChild("HeaderFrame") -- ปรับตามของคุณ
 local imageUrl = "https://raw.githubusercontent.com/Zennakub123456789/picture/main/TadHub-Icon.png"
 
 -- สร้าง ImageLabel ก่อน
