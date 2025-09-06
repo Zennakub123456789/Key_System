@@ -25,11 +25,14 @@ local cachedLink, cachedTime = "", 0;
 
 --! pick host
 local host = "https://api.platoboost.com";
-local hostResponse = fRequest({
-    Url = host .. "/public/connectivity",
-    Method = "GET"
-});
-if hostResponse.StatusCode ~= 200 and hostResponse.StatusCode ~= 429 then
+local success, hostResponse = pcall(function()
+    return fRequest({
+        Url = host .. "/public/connectivity",
+        Method = "GET"
+    })
+end)
+
+if not success or (hostResponse and hostResponse.StatusCode ~= 200 and hostResponse.StatusCode ~= 429) then
     host = "https://api.platoboost.net";
 end
 
