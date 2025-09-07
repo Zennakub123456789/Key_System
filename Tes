@@ -1,0 +1,547 @@
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local HRP = LocalPlayer.Character:WaitForChild("HumanoidRootPart")
+local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
+local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TextChatService = game:GetService("TextChatService")
+
+
+local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
+
+WindUI:SetNotificationLower(true)
+
+local Window = WindUI:CreateWindow({
+    Title = "Tad Hub | Universe | 0.0.2",
+    Icon = "door-open",
+    Author = "By Tad Hub",
+    Folder = "TadHub",
+    Size = UDim2.fromOffset(550, 350),
+    Transparent = true,
+    Theme = "Dark",
+    Resizable = true,
+    SideBarWidth = 200,
+    Background = "", -- rbxassetid only
+    BackgroundImageTransparency = 0.42,
+    HideSearchBar = true,
+    ScrollBarEnabled = false,
+    User = {
+        Enabled = true,
+        Anonymous = true,
+        Callback = function()
+            print("clicked")
+        end,
+    },
+})
+
+Window:EditOpenButton({
+    Title = "TAD HUB",
+    Icon = "monitor",
+    CornerRadius = UDim.new(0,16),
+    StrokeThickness = 2,
+    Color = ColorSequence.new( -- gradient
+        Color3.fromHex("FF0F7B"), 
+        Color3.fromHex("F89B29")
+    ),
+    OnlyMobile = false,
+    Enabled = true,
+    Draggable = true,
+})
+
+Window:IsResizable(true)
+
+Window:SetToggleKey(Enum.KeyCode.H)
+
+local Tab = Window:Tab({
+    Title = "Main",
+    Icon = "bird",
+    Locked = false,
+})
+local Section = Tab:Section({ 
+    Title = "Status:",
+    TextXAlignment = "Left",
+    TextSize = 17, -- Default Size
+})
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local LocalPlayer = Players.LocalPlayer
+
+-- ตั้งค่าเริ่มต้น
+local settings = {
+    Enabled = true,
+    UseHighlight = true,
+    UseBillboard = true,
+    UseDrawing = true, -- ถ้า Drawing API มี
+    ShowBoxes = false,
+    ShowTracers = true,
+    ShowNames = true,
+    TeamCheck = true,
+    MaxDistance = 200, -- studs
+    HighlightFillTransparency = 0.6,
+    HighlightOutlineTransparency = 0.4,
+    Color = {R = 255, G = 0, B = 0},
+    TracerFrom = "Bottom", -- "Bottom" or "Center" or "Top"
+    UpdateRate = 0.035,
+    LineThickness = 1,
+}
+
+-- ตรวจสอบ Drawing availability
+local DrawingAvail = false
+do
+    local ok, _ = pcall(function() return Drawing.new end)
+    DrawingAvail = ok
+    if not DrawingAvail then
+        settings.UseDrawing = false
+    end
+end
+
+-- เก็บ object per player
+local espObjects = {} -- [player] = {highlight = Instance, billboard = Instance, drawings = {box, tracer, text}}
+
+-- helper สี
+local function ColorFromTable(t)
+    return Color3.fromRGB(t.R or 255, t.G or 0, t.B or 0)
+end
+
+local function CreateHighlightForChar(char)
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return nil end
+    local hl = Instance.new("Highlight")
+    hl.Parent = char
+    hl.Name = "ESP_Highlight"
+    hl.Adornee = char:FindFirstChildWhichIsA("Model") or char
+    hl.FillTransparency = settings.HighlightFillTransparency
+    hl.OutlineTransparency = settings.HighlightOutlineTransparency
+    hl.Enabled = settings.UseHighlight and settings.Enabled
+    hl.DepthMode = Enum.HighlightDepthMode.Occluded -- ให้มองเห็นแม้ข้างหลังวอล
+    hl.FillColor = ColorFromTable(settings.Color)
+    hl.OutlineColor = ColorFromTable(settings.Color)
+    return hl
+end
+
+local function CreateBillboardForChar(char, player)
+    if not char then return nil end
+    local head = char:FindFirstChild("Head")
+    if not head then return nil end
+    local bb = Instance.new("BillboardGui")
+    bb.Name = "ESP_Billboard"
+    bb.AlwaysOnTop = true
+    bb.Size = UDim2.new(0, 140, 0, 40)
+    bb.StudsOffset = Vector3.new(0, 2.4, 0)
+    bb.Parent = head
+
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, 0, 1, 0)
+    frame.BackgroundTransparency = 1
+    frame.Parent = bb
+
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Name = "ESP_Name"
+    nameLabel.Size = UDim2.new(1, 0, 0.5, 0)
+    nameLabel.Position = UDim2.new(0, 0, 0, 0)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.TextStrokeTransparency = 0.6
+    nameLabel.Text = player.Name
+    nameLabel.Font = Enum.Font.SourceSansBold
+    nameLabel.TextScaled = true
+    nameLabel.Parent = frame
+
+    local distLabel = Instance.new("TextLabel")
+    distLabel.Name = "ESP_Distance"
+    distLabel.Size = UDim2.new(1, 0, 0.5, 0)
+    distLabel.Position = UDim2.new(0, 0, 0.5, 0)
+    distLabel.BackgroundTransparency = 1
+    distLabel.TextStrokeTransparency = 0.6
+    distLabel.Text = ""
+    distLabel.Font = Enum.Font.SourceSans
+    distLabel.TextScaled = true
+    distLabel.Parent = frame
+
+    nameLabel.TextColor3 = ColorFromTable(settings.Color)
+    distLabel.TextColor3 = ColorFromTable(settings.Color)
+
+    return bb
+end
+
+-- Drawing helpers (if available)
+local function CreateDrawingBox()
+    if not DrawingAvail then return nil end
+    local tl = Drawing.new("Square")
+    tl.Visible = false
+    tl.Filled = false
+    tl.Transparency = 1
+    tl.Thickness = settings.LineThickness
+    return tl
+end
+
+local function CreateDrawingLine()
+    if not DrawingAvail then return nil end
+    local line = Drawing.new("Line")
+    line.Visible = false
+    line.Transparency = 1
+    line.Thickness = settings.LineThickness
+    return line
+end
+
+local function CreateDrawingText()
+    if not DrawingAvail then return nil end
+    local txt = Drawing.new("Text")
+    txt.Visible = false
+    txt.Size = 14
+    txt.Center = true
+    return txt
+end
+
+-- ฟังก์ชันสร้าง ESP objects สำหรับ player
+local function SetupESPForPlayer(player)
+    if not player or player == LocalPlayer then return end
+    local char = player.Character
+    if not char then return end
+    -- team check
+    if settings.TeamCheck and LocalPlayer.Team and player.Team and LocalPlayer.Team == player.Team then
+        return
+    end
+
+    -- สร้าง structure
+    local obj = {}
+    -- Highlight
+    if settings.UseHighlight then
+        local ok, hl = pcall(CreateHighlightForChar, char)
+        if ok and hl then obj.highlight = hl end
+    end
+    -- Billboard
+    if settings.UseBillboard and settings.ShowNames then
+        local ok, bb = pcall(CreateBillboardForChar, char, player)
+        if ok and bb then obj.billboard = bb end
+    end
+    -- Drawing
+    if DrawingAvail and settings.UseDrawing then
+        obj.drawings = {}
+        if settings.ShowBoxes then
+            obj.drawings.box = CreateDrawingBox()
+            obj.drawings.box.Color = ColorFromTable(settings.Color)
+            obj.drawings.box.Visible = settings.ShowBoxes and settings.Enabled
+        end
+        if settings.ShowTracers then
+            obj.drawings.tracer = CreateDrawingLine()
+            obj.drawings.tracer.Color = ColorFromTable(settings.Color)
+            obj.drawings.tracer.Visible = settings.ShowTracers and settings.Enabled
+        end
+        obj.drawings.text = CreateDrawingText()
+        obj.drawings.text.Color = ColorFromTable(settings.Color)
+    end
+
+    espObjects[player] = obj
+end
+
+local function ClearESPForPlayer(player)
+    local obj = espObjects[player]
+    if not obj then return end
+    if obj.highlight and obj.highlight.Parent then
+        obj.highlight:Destroy()
+    end
+    if obj.billboard and obj.billboard.Parent then
+        obj.billboard:Destroy()
+    end
+    if obj.drawings then
+        for k,v in pairs(obj.drawings) do
+            if v and pcall(function() v:Remove() end) then end
+        end
+    end
+    espObjects[player] = nil
+end
+
+-- อัปเดตตำแหน่ง 2D (ใช้ camera)
+local Camera = Workspace.CurrentCamera
+local function WorldToScreen(pos)
+    if not Camera then Camera = Workspace.CurrentCamera end
+    local unit, onScreen = pcall(function()
+        return Camera:WorldToViewportPoint(pos)
+    end)
+    if not unit then
+        return Vector3.new(0,0,0), false
+    end
+    local screenPos, inView = Camera:WorldToViewportPoint(pos)
+    return Vector3.new(screenPos.X, screenPos.Y, screenPos.Z), inView
+end
+
+-- update loop
+local lastTick = 0
+RunService.RenderStepped:Connect(function(dt)
+    lastTick = lastTick + dt
+    if lastTick < settings.UpdateRate then return end
+    lastTick = 0
+
+    if not settings.Enabled then
+        -- ถ้ปิดทั้งหมด ให้ซ่อน drawing แต่ไม่ลบทิ้ง
+        for p,obj in pairs(espObjects) do
+            if obj.drawings then
+                for k,v in pairs(obj.drawings) do
+                    if v then v.Visible = false end
+                end
+            end
+            if obj.highlight then obj.highlight.Enabled = false end
+            if obj.billboard then obj.billboard.Enabled = false end
+        end
+        return
+    end
+
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            local char = player.Character
+            if char and char.Parent then
+                -- team check
+                if settings.TeamCheck and LocalPlayer.Team and player.Team and LocalPlayer.Team == player.Team then
+                    ClearESPForPlayer(player)
+                else
+                    if not espObjects[player] then
+                        SetupESPForPlayer(player)
+                    end
+                    local obj = espObjects[player]
+                    if obj then
+                        -- update highlight color/enabled
+                        if obj.highlight then
+                            obj.highlight.Enabled = settings.UseHighlight and settings.Enabled
+                            obj.highlight.FillColor = ColorFromTable(settings.Color)
+                            obj.highlight.OutlineColor = ColorFromTable(settings.Color)
+                        end
+                        -- update billboard
+                        if obj.billboard then
+                            local hrp = char:FindFirstChild("HumanoidRootPart")
+                            if hrp then
+                                local dist = (hrp.Position - (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character.HumanoidRootPart.Position or Vector3.new(0,0,0))).Magnitude
+                                local nameLabel = obj.billboard:FindFirstChildWhichIsA("Frame") and obj.billboard.Frame:FindFirstChild("ESP_Name")
+                                local distLabel = obj.billboard:FindFirstChildWhichIsA("Frame") and obj.billboard.Frame:FindFirstChild("ESP_Distance")
+                                if nameLabel then nameLabel.Text = player.Name end
+                                if distLabel then distLabel.Text = string.format("%.0f m", dist) end
+                                obj.billboard.Enabled = settings.ShowNames and settings.Enabled
+                                -- color
+                                if nameLabel then nameLabel.TextColor3 = ColorFromTable(settings.Color) end
+                                if distLabel then distLabel.TextColor3 = ColorFromTable(settings.Color) end
+                            else
+                                obj.billboard.Enabled = false
+                            end
+                        end
+                        -- drawing updates
+                        if obj.drawings then
+                            local hrp = char:FindFirstChild("HumanoidRootPart")
+                            local head = char:FindFirstChild("Head")
+                            local root = hrp or head
+                            if root and Camera then
+                                local screenPos, onScreen = WorldToScreen(root.Position)
+                                local charTopPos = (head and head.Position) or root.Position + Vector3.new(0, 1.5, 0)
+                                local topScreen, topOn = WorldToScreen(charTopPos)
+                                -- box
+                                if obj.drawings.box then
+                                    obj.drawings.box.Visible = settings.ShowBoxes and settings.Enabled and onScreen
+                                    if obj.drawings.box.Visible then
+                                        -- คำนวณ box แบบง่ายโดยใช้ความสูงบนหน้าจอ
+                                        local height = math.abs(topScreen.Y - screenPos.Y)
+                                        local width = height * 0.5
+                                        obj.drawings.box.Size = Vector2.new(width, height)
+                                        obj.drawings.box.Position = Vector2.new(screenPos.X - width/2, screenPos.Y - height/2)
+                                        obj.drawings.box.Color = ColorFromTable(settings.Color)
+                                        obj.drawings.box.Thickness = settings.LineThickness
+                                    end
+                                end
+                                -- tracer
+                                if obj.drawings.tracer then
+                                    obj.drawings.tracer.Visible = settings.ShowTracers and settings.Enabled and onScreen
+                                    if obj.drawings.tracer.Visible then
+                                        local fromScreen
+                                        local screenSize = Workspace.CurrentCamera.ViewportSize
+                                        if settings.TracerFrom == "Bottom" then
+                                            fromScreen = Vector2.new(screenSize.X/2, screenSize.Y)
+                                        elseif settings.TracerFrom == "Center" then
+                                            fromScreen = Vector2.new(screenSize.X/2, screenSize.Y/2)
+                                        else
+                                            fromScreen = Vector2.new(screenSize.X/2, 0)
+                                        end
+                                        obj.drawings.tracer.From = fromScreen
+                                        obj.drawings.tracer.To = Vector2.new(screenPos.X, screenPos.Y)
+                                        obj.drawings.tracer.Color = ColorFromTable(settings.Color)
+                                        obj.drawings.tracer.Thickness = settings.LineThickness
+                                    end
+                                end
+                                -- text
+                                if obj.drawings.text then
+                                    obj.drawings.text.Visible = settings.ShowNames and settings.Enabled and onScreen
+                                    if obj.drawings.text.Visible then
+                                        local text = player.Name
+                                        obj.drawings.text.Text = text
+                                        obj.drawings.text.Position = Vector2.new(screenPos.X, screenPos.Y - 20)
+                                        obj.drawings.text.Color = ColorFromTable(settings.Color)
+                                    end
+                                end
+                            else
+                                -- not visible
+                                if obj.drawings.box then obj.drawings.box.Visible = false end
+                                if obj.drawings.tracer then obj.drawings.tracer.Visible = false end
+                                if obj.drawings.text then obj.drawings.text.Visible = false end
+                            end
+                        end
+                    end
+                end
+            else
+                ClearESPForPlayer(player)
+            end
+        end
+    end
+end)
+
+-- เชื่อม events player
+Players.PlayerRemoving:Connect(function(plr)
+    ClearESPForPlayer(plr)
+end)
+
+Players.PlayerAdded:Connect(function(plr)
+    plr.CharacterAdded:Connect(function()
+        -- delay ให้ char สร้างก่อน
+        wait(0.25)
+        if settings.Enabled then
+            SetupESPForPlayer(plr)
+        end
+    end)
+end)
+
+-- ถ้ามีตัวที่โหลดแล้ว ให้ setup ทันที
+for _, pl in pairs(Players:GetPlayers()) do
+    if pl ~= LocalPlayer then
+        if pl.Character then
+            SetupESPForPlayer(pl)
+        end
+        pl.CharacterAdded:Connect(function()
+            wait(0.25)
+            SetupESPForPlayer(pl)
+        end)
+    end
+end
+
+-- ====== GUI (WindUI) ======
+    -- Main toggles
+    Tab:Toggle({
+        Title = "ESP Enabled",
+        Default = settings.Enabled,
+        Callback = function(v)
+            settings.Enabled = v
+        end
+    })
+    Tab:Toggle({
+        Title = "Use Highlight",
+        Default = settings.UseHighlight,
+        Callback = function(v)
+            settings.UseHighlight = v
+            -- update existing
+            for p,obj in pairs(espObjects) do
+                if obj.highlight then
+                    obj.highlight.Enabled = v and settings.Enabled
+                elseif v and p.Character then
+                    -- สร้างใหม่ถ้าเปิด
+                    obj.highlight = CreateHighlightForChar(p.Character)
+                end
+            end
+        end
+    })
+    Tab:Toggle({
+        Title = "Use Billboards (Names/Dist)",
+        Default = settings.UseBillboard,
+        Callback = function(v)
+            settings.UseBillboard = v
+        end
+    })
+    Tab:Toggle({
+        Title = "Use Drawing (if supported)",
+        Default = settings.UseDrawing,
+        Callback = function(v)
+            settings.UseDrawing = v and DrawingAvail
+        end
+    })
+    Tab:Toggle({
+        Title = "Show Boxes (Drawing)",
+        Default = settings.ShowBoxes,
+        Callback = function(v)
+            settings.ShowBoxes = v
+        end
+    })
+    Tab:Toggle({
+        Title = "Show Tracers (Drawing)",
+        Default = settings.ShowTracers,
+        Callback = function(v)
+            settings.ShowTracers = v
+        end
+    })
+    Tab:Toggle({
+        Title = "Show Names",
+        Default = settings.ShowNames,
+        Callback = function(v)
+            settings.ShowNames = v
+        end
+    })
+    Tab:Toggle({
+        Title = "Team Check",
+        Default = settings.TeamCheck,
+        Callback = function(v)
+            settings.TeamCheck = v
+        end
+    })
+    Tab:Slider({
+        Title = "Max Distance",
+        Step = 1,
+        Value = {Min = 50, Max = 1000, Default = settings.MaxDistance},
+        Callback = function(v) settings.MaxDistance = v end
+    })
+    Tab:Dropdown({
+        Title = "Tracer From",
+        Values = {"Bottom", "Center", "Top"},
+        Value = settings.TracerFrom,
+        Callback = function(opt) settings.TracerFrom = opt end
+    })
+    Tab:Slider({
+        Title = "Update Rate (Lower = faster)",
+        Step = 0.01,
+        Value = {Min = 0.01, Max = 0.2, Default = settings.UpdateRate},
+        Callback = function(v) settings.UpdateRate = v end
+    })
+    Tab:Slider({
+        Title = "Line Thickness",
+        Step = 1,
+        Value = {Min = 1, Max = 6, Default = settings.LineThickness},
+        Callback = function(v) settings.LineThickness = v end
+    })
+    Tab:Input({
+        Title = "Color R (0-255)",
+        Default = tostring(settings.Color.R),
+        Callback = function(v)
+            local n = tonumber(v) or 255
+            settings.Color.R = math.clamp(math.floor(n), 0, 255)
+        end
+    })
+    Tab:Input({
+        Title = "Color G (0-255)",
+        Default = tostring(settings.Color.G),
+        Callback = function(v)
+            local n = tonumber(v) or 0
+            settings.Color.G = math.clamp(math.floor(n), 0, 255)
+        end
+    })
+    Tab:Input({
+        Title = "Color B (0-255)",
+        Default = tostring(settings.Color.B),
+        Callback = function(v)
+            local n = tonumber(v) or 0
+            settings.Color.B = math.clamp(math.floor(n), 0, 255)
+        end
+    })
+
+    -- Notify ถ้า Drawing ไม่พร้อม
+    if not DrawingAvail then
+        WindUI:Notify({
+            Title = "Drawing not available",
+            Content = "Drawing API ไม่รองรับบนตัวรันนี้ — Box/Tracers แบบ Drawing จะปิดอัตโนมัติ",
+            Icon = "warning",
+            Duration = 4
+        })
+    end
+end
