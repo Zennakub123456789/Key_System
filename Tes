@@ -268,11 +268,20 @@ local function WorldToScreen(pos)
 end
 
 -- update loop
+local RunService = game:GetService("RunService")
+local settings = {
+    UpdateRate = 0.1 -- อัปเดตทุก 0.1 วินาที
+}
+
 local lastTick = 0
 RunService.RenderStepped:Connect(function(dt)
     lastTick = lastTick + dt
     if lastTick < settings.UpdateRate then return end
     lastTick = 0
+
+    -- ใส่โค้ดที่ต้องการทำทุก UpdateRate
+    print("Tick update!")
+end)
 
     if not settings.Enabled then
         -- ถ้ปิดทั้งหมด ให้ซ่อน drawing แต่ไม่ลบทิ้ง
